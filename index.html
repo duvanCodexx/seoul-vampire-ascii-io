@@ -162,6 +162,127 @@
 
     .controls-hint b { color: var(--text); }
 
+    /* Mobile Touch Controls */
+    #mobile-controls {
+      display: none;
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 6;
+      touch-action: none;
+    }
+
+    body.is-mobile #mobile-controls {
+      display: block;
+    }
+
+    body.is-mobile .controls-hint {
+      display: none;
+    }
+
+    body.is-mobile .hud {
+      top: 8px;
+      left: 8px;
+      padding: 8px 10px;
+      font-size: 10.5px;
+      min-width: 205px;
+    }
+
+    body.is-mobile .ranking-panel {
+      top: 8px;
+      right: 8px;
+      width: 175px;
+      padding: 7px 9px;
+      font-size: 10px;
+    }
+
+    body.is-mobile .top-center {
+      top: auto;
+      bottom: 12px;
+      gap: 6px;
+    }
+
+    body.is-mobile button.ascii-btn {
+      padding: 6px 9px;
+      font-size: 11px;
+    }
+
+    #touch-joystick {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      width: 124px;
+      height: 124px;
+      border-radius: 50%;
+      background: rgba(15, 19, 28, 0.65);
+      border: 2px solid rgba(201, 209, 217, 0.28);
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    #joystick-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 48px;
+      height: 48px;
+      margin-left: -24px;
+      margin-top: -24px;
+      border-radius: 50%;
+      background: rgba(230, 57, 70, 0.72);
+      border: 2px solid #fff;
+      pointer-events: none;
+    }
+
+    #touch-actions {
+      position: fixed;
+      bottom: 20px;
+      right: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, 62px);
+      gap: 8px;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .touch-btn {
+      height: 54px;
+      border-radius: 10px;
+      background: rgba(15, 19, 28, 0.78);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .touch-btn:active {
+      transform: scale(0.94);
+      border-color: #fff;
+    }
+
+    .touch-btn.primary {
+      background: rgba(230, 57, 70, 0.78);
+      border-color: var(--crimson);
+      color: #fff;
+    }
+
+    .touch-btn.ready {
+      border-color: #facc15;
+      color: #facc15;
+      box-shadow: 0 0 10px rgba(250, 204, 21, 0.35);
+    }
+
+    .touch-btn.disabled {
+      opacity: 0.45;
+    }
+
     #overlay {
       position: fixed;
       inset: 0;
@@ -274,6 +395,7 @@
   <div class="top-center">
     <button class="ascii-btn" id="btn-sound">[M] Sonido: ON</button>
     <button class="ascii-btn" id="btn-respawn">[R] Reaparecer</button>
+    <button class="ascii-btn" id="btn-fullscreen">[ ] Pantalla</button>
   </div>
 
   <div class="ranking-panel" id="ranking-panel">
@@ -295,6 +417,22 @@
     <b>E</b>: Nova |
     <b>F</b>: Poder Especial |
     <b>Rueda</b>: Zoom
+  </div>
+
+  <div id="mobile-controls">
+    <div id="touch-joystick">
+      <div id="joystick-knob"></div>
+    </div>
+    <div id="touch-actions">
+      <button class="touch-btn" id="tbtn-zoom-out">Z-</button>
+      <button class="touch-btn" id="tbtn-parry">PARRY</button>
+      <button class="touch-btn" id="tbtn-zoom-in">Z+</button>
+      <button class="touch-btn" id="tbtn-nova">NOVA</button>
+      <button class="touch-btn" id="tbtn-drain">DRENAR</button>
+      <button class="touch-btn" id="tbtn-power">PODER</button>
+      <button class="touch-btn" id="tbtn-dash">DASH</button>
+      <button class="touch-btn primary" id="tbtn-slash" style="grid-column: span 2;">TAJO</button>
+    </div>
   </div>
 
   <div id="overlay">
@@ -343,6 +481,23 @@
       const btnStart = document.getElementById("btn-start");
       const btnSound = document.getElementById("btn-sound");
       const btnRespawn = document.getElementById("btn-respawn");
+      const btnFullscreen = document.getElementById("btn-fullscreen");
+      const touchJoystick = document.getElementById("touch-joystick");
+      const joystickKnob = document.getElementById("joystick-knob");
+      const tbtnDrain = document.getElementById("tbtn-drain");
+      const tbtnPower = document.getElementById("tbtn-power");
+
+      const isMobile =
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+        window.matchMedia("(pointer: coarse)").matches ||
+        ("ontouchstart" in window && window.innerWidth <= 1024);
+      if (isMobile) {
+        document.body.classList.add("is-mobile");
+      }
+
+      let joyX = 0;
+      let joyY = 0;
+      let joyTouchId = null;
 
       const savedName = sessionStorage.getItem("seoul_ascii_name") || "";
       inputName.value = savedName;
@@ -800,9 +955,23 @@
         if (localPlayer.drainCd > 0) {
           hudDrain.style.color = "#94a3b8";
           hudDrain.textContent = `Recargando (${localPlayer.drainCd.toFixed(1)}s)`;
+          tbtnDrain.classList.add("disabled");
+          tbtnDrain.textContent = `${Math.ceil(localPlayer.drainCd)}s`;
         } else {
           hudDrain.style.color = "#2ec4b6";
           hudDrain.textContent = "LISTO [Click Der/L]";
+          tbtnDrain.classList.remove("disabled");
+          tbtnDrain.textContent = "DRENAR";
+        }
+        if (localPlayer.powerTime > 0) {
+          tbtnPower.classList.add("ready");
+          tbtnPower.textContent = `${localPlayer.powerTime.toFixed(0)}s`;
+        } else if (localPlayer.powerCharge >= 100) {
+          tbtnPower.classList.add("ready");
+          tbtnPower.textContent = "PODER!";
+        } else {
+          tbtnPower.classList.remove("ready");
+          tbtnPower.textContent = `${Math.floor(localPlayer.powerCharge)}%`;
         }
         hudStats.textContent = `Oleada ${wave} | Bajas: ${localPlayer.kills} | Zoom: ${zoom.toFixed(1)}x`;
       }
@@ -837,16 +1006,29 @@
       function getInputDir() {
         let mx = 0;
         let my = 0;
-        const up = keysDown.has("KeyW") || keysDown.has("ArrowUp") || keysDown.has("w");
-        const down = keysDown.has("KeyS") || keysDown.has("ArrowDown") || keysDown.has("s");
-        const left = keysDown.has("KeyA") || keysDown.has("ArrowLeft") || keysDown.has("a");
-        const right = keysDown.has("KeyD") || keysDown.has("ArrowRight") || keysDown.has("d");
-        if (up) { mx -= 1; my -= 1; }
-        if (down) { mx += 1; my += 1; }
-        if (left) { mx -= 1; my += 1; }
-        if (right) { mx += 1; my -= 1; }
+        if (joyX !== 0 || joyY !== 0) {
+          // Convert screen joystick (joyX, joyY) to isometric world axes
+          mx = joyX + joyY;
+          my = joyY - joyX;
+        } else {
+          const up = keysDown.has("KeyW") || keysDown.has("ArrowUp") || keysDown.has("w");
+          const down = keysDown.has("KeyS") || keysDown.has("ArrowDown") || keysDown.has("s");
+          const left = keysDown.has("KeyA") || keysDown.has("ArrowLeft") || keysDown.has("a");
+          const right = keysDown.has("KeyD") || keysDown.has("ArrowRight") || keysDown.has("d");
+          if (up) { mx -= 1; my -= 1; }
+          if (down) { mx += 1; my += 1; }
+          if (left) { mx -= 1; my += 1; }
+          if (right) { mx += 1; my -= 1; }
+        }
         const len = Math.hypot(mx, my);
-        if (len > 0) { mx /= len; my /= len; }
+        if (len > 0) {
+          mx /= len;
+          my /= len;
+          if (isMobile) {
+            localPlayer.fx = mx;
+            localPlayer.fy = my;
+          }
+        }
         return { x: mx, y: my };
       }
 
@@ -857,11 +1039,13 @@
         if (localPlayer.powerTime <= 0) {
           localPlayer.powerCharge = Math.min(100, localPlayer.powerCharge + 4);
         }
-        const dx = mouseWorld.x - localPlayer.x;
-        const dy = mouseWorld.y - localPlayer.y;
-        const len = Math.hypot(dx, dy) || 1;
-        localPlayer.fx = dx / len;
-        localPlayer.fy = dy / len;
+        if (!isMobile) {
+          const dx = mouseWorld.x - localPlayer.x;
+          const dy = mouseWorld.y - localPlayer.y;
+          const len = Math.hypot(dx, dy) || 1;
+          localPlayer.fx = dx / len;
+          localPlayer.fy = dy / len;
+        }
         moveLocal(localPlayer.fx * 7, localPlayer.fy * 7, 0.04);
         sendWS({ type: "action", kind: "slash", fx: localPlayer.fx, fy: localPlayer.fy });
       }
@@ -1428,6 +1612,87 @@
         sendWS({ type: "respawn" });
         canvas.focus();
       });
+
+      function toggleFullscreen() {
+        const doc = document;
+        const el = doc.documentElement;
+        const isFs = doc.fullscreenElement || doc.webkitFullscreenElement;
+        if (!isFs) {
+          const req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (req) req.call(el).catch(() => {});
+        } else {
+          const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+          if (exit) exit.call(doc).catch(() => {});
+        }
+      }
+
+      btnFullscreen.addEventListener("click", toggleFullscreen);
+      document.addEventListener("fullscreenchange", () => {
+        btnFullscreen.textContent = document.fullscreenElement ? "[x] Salir" : "[ ] Pantalla";
+      });
+
+      // --- Mobile Touch Joystick & Buttons ---
+      function updateJoystick(touch) {
+        const rect = touchJoystick.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const maxR = rect.width * 0.36;
+        let dx = touch.clientX - cx;
+        let dy = touch.clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxR) {
+          dx = (dx / dist) * maxR;
+          dy = (dy / dist) * maxR;
+        }
+        joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        joyX = Math.abs(dx) < 6 ? 0 : dx / maxR;
+        joyY = Math.abs(dy) < 6 ? 0 : dy / maxR;
+      }
+
+      touchJoystick.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        if (joyTouchId === null && e.changedTouches.length > 0) {
+          const t = e.changedTouches[0];
+          joyTouchId = t.identifier;
+          updateJoystick(t);
+        }
+      }, { passive: false });
+
+      touchJoystick.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          if (t.identifier === joyTouchId) updateJoystick(t);
+        }
+      }, { passive: false });
+
+      const resetJoystick = (e) => {
+        for (const t of e.changedTouches) {
+          if (t.identifier === joyTouchId) {
+            joyTouchId = null;
+            joyX = 0;
+            joyY = 0;
+            joystickKnob.style.transform = "translate(0px, 0px)";
+          }
+        }
+      };
+      touchJoystick.addEventListener("touchend", resetJoystick);
+      touchJoystick.addEventListener("touchcancel", resetJoystick);
+
+      function bindTouchBtn(id, fn) {
+        const el = document.getElementById(id);
+        el.addEventListener("touchstart", (e) => {
+          e.preventDefault();
+          fn();
+        }, { passive: false });
+      }
+      bindTouchBtn("tbtn-slash", doSlash);
+      bindTouchBtn("tbtn-dash", doDash);
+      bindTouchBtn("tbtn-parry", doParry);
+      bindTouchBtn("tbtn-drain", doDrain);
+      bindTouchBtn("tbtn-nova", doNova);
+      bindTouchBtn("tbtn-power", doPower);
+      bindTouchBtn("tbtn-zoom-in", () => { zoom = Math.min(2.4, zoom + 0.15); updateHUD(); });
+      bindTouchBtn("tbtn-zoom-out", () => { zoom = Math.max(0.6, zoom - 0.15); updateHUD(); });
 
       window.addEventListener("beforeunload", () => {
         if (ws && ws.readyState === WebSocket.OPEN) ws.close(1000, "Tab closed");
