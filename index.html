@@ -2,7 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>SEOUL // BLOOD &amp; ASCII.io</title>
   <style>
     :root {
@@ -34,11 +37,33 @@
     #game-canvas {
       display: block;
       width: 100vw;
-      height: 100vh;
+      height: 100dvh;
       cursor: crosshair;
       outline: none;
       user-select: none;
     }
+
+    body.ios-zen .ranking-panel {
+      display: none;
+    }
+
+    #ios-fs-tip {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92vw, 340px);
+      padding: 8px 12px;
+      background: rgba(10, 12, 18, 0.94);
+      border: 1px solid var(--amber);
+      color: var(--text);
+      font-size: 11px;
+      line-height: 1.4;
+      z-index: 20;
+      text-align: center;
+    }
+
+    #ios-fs-tip.hidden { display: none; }
 
     .hud {
       position: fixed;
@@ -464,6 +489,10 @@
     <b>E</b>: Nova |
     <b>F</b>: Poder Especial |
     <b>Rueda</b>: Zoom
+  </div>
+
+  <div id="ios-fs-tip" class="hidden">
+    Modo inmersivo activado. En iPhone, Safari bloquea la pantalla completa web: para 100% pantalla completa toca <b>Compartir (↑) → Añadir a pantalla de inicio</b>.
   </div>
 
   <div id="mobile-controls">
@@ -1743,16 +1772,49 @@
         canvas.focus();
       });
 
+      const iosFsTip = document.getElementById("ios-fs-tip");
+      let iosTipTimer = null;
+
+      function toggleIosZen() {
+        const active = document.body.classList.toggle("ios-zen");
+        btnFullscreen.textContent = active ? (isMobile ? "✕" : "[x] Salir") : (isMobile ? "⛶" : "[ ] Pantalla");
+        window.scrollTo(0, 1);
+        resize();
+        if (active && !window.navigator.standalone && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+          iosFsTip.classList.remove("hidden");
+          clearTimeout(iosTipTimer);
+          iosTipTimer = setTimeout(() => iosFsTip.classList.add("hidden"), 6500);
+        } else {
+          iosFsTip.classList.add("hidden");
+        }
+      }
+
       function toggleFullscreen() {
         const doc = document;
         const el = doc.documentElement;
         const isFs = doc.fullscreenElement || doc.webkitFullscreenElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (!req) {
+          toggleIosZen();
+          return;
+        }
         if (!isFs) {
-          const req = el.requestFullscreen || el.webkitRequestFullscreen;
-          if (req) req.call(el).catch(() => {});
+          try {
+            const p = req.call(el);
+            if (p && typeof p.catch === "function") {
+              p.catch(() => toggleIosZen());
+            }
+          } catch (_) {
+            toggleIosZen();
+          }
         } else {
           const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
-          if (exit) exit.call(doc).catch(() => {});
+          if (exit) {
+            try {
+              const p = exit.call(doc);
+              if (p && typeof p.catch === "function") p.catch(() => {});
+            } catch (_) {}
+          }
         }
       }
 
