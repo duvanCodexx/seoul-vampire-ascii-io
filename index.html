@@ -239,8 +239,8 @@
 
     #touch-joystick {
       position: fixed;
-      bottom: 14px;
-      left: 14px;
+      bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+      left: calc(32px + env(safe-area-inset-left, 0px));
       width: 92px;
       height: 92px;
       border-radius: 50%;
