@@ -1,0 +1,11 @@
+services:
+  seoul-ascii:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=${PORT:-8765}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-*}
+    ports:
+      - "${PORT:-8765}:${PORT:-8765}"
