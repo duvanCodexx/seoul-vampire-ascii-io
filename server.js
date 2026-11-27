@@ -113,9 +113,9 @@ function canOccupy(x, y, r = 0.28) {
 const WEAPONS = [
   { level: 1, name: "Garras Carmesí", reach: 3.1, arc: 0.1, dmg: 28, bleed: 0, chain: 0, wave: false, lifesteal: 0 },
   { level: 2, name: "Hoz Lunar", reach: 3.8, arc: -0.15, dmg: 36, bleed: 4, chain: 0, wave: false, lifesteal: 0 },
-  { level: 3, name: "Espadas Gemelas", reach: 4.0, arc: -0.2, dmg: 44, bleed: 5, chain: 0, wave: true, lifesteal: 2 },
-  { level: 4, name: "Lanza Dokkaebi", reach: 4.7, arc: 0.0, dmg: 54, bleed: 6, chain: 2, wave: true, lifesteal: 4 },
-  { level: 5, name: "Segadora del Eclipse", reach: 5.2, arc: -0.35, dmg: 68, bleed: 9, chain: 3, wave: true, lifesteal: 8 }
+  { level: 3, name: "Espadas Gemelas", reach: 4.0, arc: -0.2, dmg: 44, bleed: 5, chain: 0, wave: true, lifesteal: 0 },
+  { level: 4, name: "Lanza Dokkaebi", reach: 4.7, arc: 0.0, dmg: 54, bleed: 6, chain: 2, wave: true, lifesteal: 1 },
+  { level: 5, name: "Segadora del Eclipse", reach: 5.2, arc: -0.35, dmg: 68, bleed: 9, chain: 3, wave: true, lifesteal: 2 }
 ];
 
 function getWeaponForLevel(lvl) {
@@ -277,9 +277,9 @@ function awardXpAndScore(player, xpGain, scoreGain, isKill = false) {
     player.xp -= player.xpNext;
     player.level += 1;
     player.xpNext = xpForNextLevel(player.level);
-    player.maxHp += 20;
-    player.hp = Math.min(player.maxHp, player.hp + 35);
-    player.blood = player.maxBlood;
+    player.maxHp += 15;
+    player.hp = Math.min(player.maxHp, player.hp + 12);
+    player.blood = Math.min(player.maxBlood, player.blood + 35);
     const w = getWeaponForLevel(player.level);
     broadcast({
       type: "fx",
@@ -500,11 +500,11 @@ function handleClientMessage(ws, msg) {
         }
       }
       if (target) {
-        p.drainCd = 6.0;
+        p.drainCd = 8.0;
         const dmg = target.hp <= 42 ? 999 : 25;
         damageEnemy(target, dmg, 0, 0, p, target.hp <= 42);
-        p.hp = Math.min(p.maxHp, p.hp + 20);
-        p.blood = Math.min(p.maxBlood, p.blood + 28);
+        p.hp = Math.min(p.maxHp, p.hp + 8);
+        p.blood = Math.min(p.maxBlood, p.blood + 20);
         broadcast({ type: "fx", kind: "drain", sx: target.x, sy: target.y, tx: p.x, ty: p.y });
       }
     } else if (msg.kind === "nova" && p.blood >= 50) {
