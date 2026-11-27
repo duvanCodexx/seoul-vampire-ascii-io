@@ -262,6 +262,10 @@
       <span id="hud-weapon" style="color:#ff758f">Garras Carmesí</span>
     </div>
     <div class="bar-row">
+      <span class="bar-label">DRENAR</span>
+      <span id="hud-drain" style="color:#2ec4b6">LISTO [Click Der/L]</span>
+    </div>
+    <div class="bar-row">
       <span class="bar-label">ESTADO</span>
       <span id="hud-stats">Oleada 1 | Bajas: 0 | Zoom: 1.0x</span>
     </div>
@@ -328,6 +332,7 @@
       const hudLvl = document.getElementById("hud-lvl");
       const hudPower = document.getElementById("hud-power");
       const hudWeapon = document.getElementById("hud-weapon");
+      const hudDrain = document.getElementById("hud-drain");
       const hudStats = document.getElementById("hud-stats");
       const hudConn = document.getElementById("hud-conn");
       const rankingList = document.getElementById("ranking-list");
@@ -466,12 +471,15 @@
         parryTime: 0,
         powerCharge: 0,
         powerTime: 0,
+        drainCd: 0,
+        weaponTier: 1,
         speed: 8.6
       };
 
       let remotePlayers = [];
       let enemies = [];
       let projectiles = [];
+      let weaponDrops = [];
 
       // Visual FX (capped for smooth FPS even with many enemies)
       const MAX_PARTICLES = 160;
@@ -570,6 +578,7 @@
           } else if (msg.type === "world") {
             wave = msg.wave;
             projectiles = msg.projectiles;
+            weaponDrops = msg.drops || [];
 
             // Update interpolated enemy targets
             const seenEnemies = new Set();
@@ -622,6 +631,8 @@
               localPlayer.score = me.score;
               localPlayer.kills = me.kills;
               localPlayer.weapon = me.weapon;
+              localPlayer.weaponTier = me.weaponTier || me.level;
+              localPlayer.drainCd = me.drainCd || 0;
               localPlayer.alive = me.alive;
               localPlayer.power = me.power;
               if (!me.alive) {
@@ -706,6 +717,10 @@
           shockwaves.push({ x: fx.x, y: fx.y, radius: 0.3, maxRadius: 4.2, life: 0.45, maxLife: 0.45, color: "#c084fc" });
           spawnParticles(fx.x, fx.y, 24, "#c084fc", ["*", "+", "~", "@"], 7, 5);
           floatingTexts.push({ x: fx.x, y: fx.y, z: 2.3, text: "PODER ACTIVO!", color: "#e879f9", life: 1.2, maxLife: 1.2 });
+        } else if (fx.kind === "pickup") {
+          sound.playTone(380, 760, 0.22, "triangle", 0.1);
+          shockwaves.push({ x: fx.x, y: fx.y, radius: 0.2, maxRadius: 2.2, life: 0.3, maxLife: 0.3, color: fx.color || "#ffb347" });
+          floatingTexts.push({ x: fx.x, y: fx.y, z: 2.0, text: `+ ${fx.weaponName}!`, color: fx.color || "#ffb347", life: 1.3, maxLife: 1.3 });
         } else if (fx.kind === "levelup") {
           sound.playTone(260, 660, 0.35, "triangle", 0.12);
           shockwaves.push({ x: fx.x, y: fx.y, radius: 0.3, maxRadius: 4.5, life: 0.5, maxLife: 0.5, color: "#ffb347" });
@@ -782,6 +797,13 @@
           hudPower.textContent = `${makeBar(localPlayer.powerCharge, 100, "%", ".")} ${Math.floor(localPlayer.powerCharge)}%`;
         }
         hudWeapon.textContent = localPlayer.weapon;
+        if (localPlayer.drainCd > 0) {
+          hudDrain.style.color = "#94a3b8";
+          hudDrain.textContent = `Recargando (${localPlayer.drainCd.toFixed(1)}s)`;
+        } else {
+          hudDrain.style.color = "#2ec4b6";
+          hudDrain.textContent = "LISTO [Click Der/L]";
+        }
         hudStats.textContent = `Oleada ${wave} | Bajas: ${localPlayer.kills} | Zoom: ${zoom.toFixed(1)}x`;
       }
 
@@ -864,7 +886,7 @@
       }
 
       function doDrain() {
-        if (!joined || !localPlayer.alive) return;
+        if (!joined || !localPlayer.alive || localPlayer.drainCd > 0) return;
         sendWS({ type: "action", kind: "drain" });
       }
 
@@ -1148,6 +1170,16 @@
           drawChar(iso.ix, iso.iy, s.char, s.color);
         }
 
+        // Render random weapon drops on the map
+        for (const d of weaponDrops) {
+          const iso = worldToIso(d.x, d.y);
+          const hover = Math.sin(timeSec * 5 + d.id) * 0.2 + 0.35;
+          drawChar(iso.ix - 0.65, iso.iy - hover, "[", "#64748b");
+          drawChar(iso.ix, iso.iy - hover, d.glyph, d.color);
+          drawChar(iso.ix + 0.65, iso.iy - hover, "]", "#64748b");
+          drawChar(iso.ix, iso.iy + 0.15, "*", d.color);
+        }
+
         for (const sw of shockwaves) {
           const steps = 28;
           ctx.globalAlpha = Math.max(0.15, sw.life / sw.maxLife);
@@ -1212,7 +1244,8 @@
           const isPowered = isMe ? localPlayer.powerTime > 0 : Boolean(p.power);
           drawChar(iso.ix, iso.iy + 0.1, p.moving ? "/\\" : "||", legColor);
           drawChar(iso.ix - 0.7, iso.iy - 0.55 - bob, capeChar, isPowered ? "#c084fc" : capeColor);
-          drawChar(iso.ix + 0.7, iso.iy - 0.55 - bob, weaponGlyph(p.level), p.level >= 4 ? "#2ec4b6" : "#ffb347");
+          const wTier = p.weaponTier || p.level;
+          drawChar(iso.ix + 0.7, iso.iy - 0.55 - bob, weaponGlyph(wTier), wTier >= 4 ? "#2ec4b6" : "#ffb347");
           drawChar(iso.ix, iso.iy - 0.75 - bob, isPowered ? "W" : "V", isPowered && Math.floor(timeSec * 16) % 2 === 0 ? "#f0abfc" : mainColor);
           drawChar(iso.ix, iso.iy - 1.48 - bob, "@", isPowered ? "#facc15" : "#f8fafc");
 

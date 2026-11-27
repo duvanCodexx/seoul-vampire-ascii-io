@@ -129,10 +129,34 @@ function xpForNextLevel(lvl) {
 // --- Shared World State ---
 let nextId = 1;
 let nextEnemyId = 1;
+let nextDropId = 1;
 const clients = new Map();
 const enemies = [];
 const projectiles = [];
+const drops = [];
+let dropSpawnTimer = 3.0;
 let wave = 1;
+
+const WEAPON_GLYPHS = ["/", ")", "X", "T", "@"];
+const WEAPON_COLORS = ["#ff4d6d", "#facc15", "#fb923c", "#2ec4b6", "#e879f9"];
+
+function spawnWeaponDrop(xOverride = null, yOverride = null, tierOverride = null) {
+  if (drops.length >= 10) return;
+  const pos = xOverride != null ? { x: xOverride, y: yOverride } : randomOpenSpot();
+  const roll = Math.random();
+  const tier = tierOverride || (roll > 0.85 ? 5 : roll > 0.6 ? 4 : roll > 0.3 ? 3 : 2);
+  const w = getWeaponForLevel(tier);
+  drops.push({
+    id: nextDropId++,
+    x: pos.x,
+    y: pos.y,
+    tier,
+    name: w.name,
+    glyph: WEAPON_GLYPHS[tier - 1] || "*",
+    color: WEAPON_COLORS[tier - 1] || "#ffb347",
+    life: 45
+  });
+}
 
 function randomOpenSpot() {
   for (let i = 0; i < 100; i++) {
@@ -230,6 +254,7 @@ function sendTo(ws, obj) {
 
 function resetPlayerProgress(player) {
   player.level = 1;
+  player.weaponTier = 1;
   player.xp = 0;
   player.xpNext = xpForNextLevel(1);
   player.maxHp = 100;
@@ -239,6 +264,7 @@ function resetPlayerProgress(player) {
   player.kills = 0;
   player.comboStep = 0;
   player.powerTime = 0;
+  player.drainCd = 0;
 }
 
 function awardXpAndScore(player, xpGain, scoreGain, isKill = false) {
@@ -317,7 +343,8 @@ function damageEnemy(e, amount, kx, ky, attacker, isCrit = false) {
   });
 
   if (attacker) {
-    const w = getWeaponForLevel(attacker.level);
+    const tier = Math.max(attacker.level, attacker.weaponTier || 1);
+    const w = getWeaponForLevel(tier);
     if (w.bleed > 0) {
       e.bleed = w.bleed;
       e.bleedTimer = 3.0;
@@ -332,6 +359,10 @@ function damageEnemy(e, amount, kx, ky, attacker, isCrit = false) {
     const xp = e.type === "dokkaebi" ? 95 : e.type === "heavy" ? 45 : 30;
     const sc = e.type === "dokkaebi" ? 350 : e.type === "heavy" ? 160 : 100;
     awardXpAndScore(attacker, xp, sc, true);
+    if (e.type === "dokkaebi" || (e.type === "heavy" && Math.random() < 0.5) || Math.random() < 0.22) {
+      const dropTier = e.type === "dokkaebi" ? 4 + (Math.random() > 0.5 ? 1 : 0) : e.type === "heavy" ? 3 : 2;
+      spawnWeaponDrop(e.x, e.y, dropTier);
+    }
   }
 }
 
@@ -371,7 +402,8 @@ function handleClientMessage(ws, msg) {
     p.moving = Boolean(msg.moving);
   } else if (msg.type === "action" && p.alive) {
     p.lastActive = Date.now();
-    const w = getWeaponForLevel(p.level);
+    const effTier = Math.max(p.level, p.weaponTier || 1);
+    const w = getWeaponForLevel(effTier);
     const fx = typeof msg.fx === "number" ? msg.fx : p.fx;
     const fy = typeof msg.fy === "number" ? msg.fy : p.fy;
 
@@ -453,6 +485,7 @@ function handleClientMessage(ws, msg) {
       p.powerTime = 8.0;
       broadcast({ type: "fx", kind: "power", x: p.x, y: p.y, playerId: p.id });
     } else if (msg.kind === "drain") {
+      if (p.drainCd > 0) return;
       let target = null;
       let bestDist = 3.8;
       for (const e of enemies) {
@@ -463,6 +496,7 @@ function handleClientMessage(ws, msg) {
         }
       }
       if (target) {
+        p.drainCd = 6.0;
         const dmg = target.hp <= 42 ? 999 : 25;
         damageEnemy(target, dmg, 0, 0, p, target.hp <= 42);
         p.hp = Math.min(p.maxHp, p.hp + 20);
@@ -526,6 +560,49 @@ setInterval(() => {
     if (p.invuln > 0) p.invuln = Math.max(0, p.invuln - dt);
     if (p.parryTime > 0) p.parryTime = Math.max(0, p.parryTime - dt);
     if (p.powerTime > 0) p.powerTime = Math.max(0, p.powerTime - dt);
+    if (p.drainCd > 0) p.drainCd = Math.max(0, p.drainCd - dt);
+  }
+
+  // Random weapon drops on the map
+  dropSpawnTimer -= dt;
+  if (dropSpawnTimer <= 0) {
+    dropSpawnTimer = 6.5;
+    spawnWeaponDrop();
+  }
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i];
+    d.life -= dt;
+    if (d.life <= 0) {
+      drops.splice(i, 1);
+      continue;
+    }
+    let pickedBy = null;
+    for (const [, p] of clients) {
+      if (!p.alive) continue;
+      const dx = p.x - d.x;
+      const dy = p.y - d.y;
+      if (dx * dx + dy * dy < 1.44) {
+        pickedBy = p;
+        break;
+      }
+    }
+    if (pickedBy) {
+      const curTier = Math.max(pickedBy.level, pickedBy.weaponTier || 1);
+      if (d.tier > curTier) {
+        pickedBy.weaponTier = d.tier;
+      } else {
+        awardXpAndScore(pickedBy, 30, 150, false);
+      }
+      broadcast({
+        type: "fx",
+        kind: "pickup",
+        x: d.x,
+        y: d.y,
+        weaponName: d.name,
+        color: d.color
+      });
+      drops.splice(i, 1);
+    }
   }
 
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -735,7 +812,9 @@ setInterval(() => {
     alive: c.alive,
     parry: c.parryTime > 0,
     power: c.powerTime > 0,
-    weapon: getWeaponForLevel(c.level).name
+    drainCd: q(c.drainCd || 0),
+    weaponTier: Math.max(c.level, c.weaponTier || 1),
+    weapon: getWeaponForLevel(Math.max(c.level, c.weaponTier || 1)).name
   }));
 
   for (const [ws, client] of clients) {
@@ -769,12 +848,22 @@ setInterval(() => {
       }
     }
 
+    const nearbyDrops = [];
+    for (const d of drops) {
+      const dx = d.x - cx;
+      const dy = d.y - cy;
+      if (dx * dx + dy * dy <= AOI_RADIUS_SQ) {
+        nearbyDrops.push({ id: d.id, x: q(d.x), y: q(d.y), glyph: d.glyph, color: d.color, name: d.name });
+      }
+    }
+
     const pkt = {
       type: "world",
       wave,
       players: playersPayload,
       enemies: nearbyEnemies,
-      projectiles: nearbyProjectiles
+      projectiles: nearbyProjectiles,
+      drops: nearbyDrops
     };
     if (leaderboard) pkt.leaderboard = leaderboard;
     sendTo(ws, pkt);
@@ -858,6 +947,7 @@ server.on("upgrade", (req, socket) => {
     blood: 40,
     maxBlood: 100,
     level: 1,
+    weaponTier: 1,
     xp: 0,
     xpNext: xpForNextLevel(1),
     score: 0,
@@ -867,6 +957,7 @@ server.on("upgrade", (req, socket) => {
     invuln: 0,
     parryTime: 0,
     powerTime: 0,
+    drainCd: 0,
     lastActive: now,
     lastPong: now
   });
