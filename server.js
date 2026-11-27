@@ -374,12 +374,16 @@ function handleClientMessage(ws, msg) {
     p.lastActive = Date.now();
     const cleanName = String(msg.name || "").trim().slice(0, 16) || `Vampiro-${p.id}`;
     p.name = cleanName;
+    p.skin = String(msg.skin || "vampire").slice(0, 16);
     resetPlayerProgress(p);
     p.alive = true;
     const pos = randomOpenSpot();
     p.x = pos.x;
     p.y = pos.y;
     sendTo(ws, { type: "welcome", id: p.id, name: p.name, mapW: MAP_W, mapH: MAP_H, map, lanterns });
+  } else if (msg.type === "skin") {
+    p.lastActive = Date.now();
+    p.skin = String(msg.skin || "vampire").slice(0, 16);
   } else if (msg.type === "respawn") {
     p.lastActive = Date.now();
     resetPlayerProgress(p);
@@ -795,6 +799,7 @@ setInterval(() => {
   const playersPayload = [...clients.values()].map((c) => ({
     id: c.id,
     name: c.name,
+    skin: c.skin || "vampire",
     x: q(c.x),
     y: q(c.y),
     fx: q(c.fx),
@@ -937,6 +942,7 @@ server.on("upgrade", (req, socket) => {
     ws: socket,
     id,
     name: `Vampiro-${id}`,
+    skin: "vampire",
     x: pos.x,
     y: pos.y,
     fx: 1,

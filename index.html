@@ -288,21 +288,26 @@
       opacity: 0.45;
     }
 
-    #overlay {
+    #overlay, #options-overlay {
       position: fixed;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 12px;
+      overflow-y: auto;
       background: rgba(5, 6, 10, 0.85);
       z-index: 10;
     }
 
-    #overlay.hidden { display: none; }
+    #overlay.hidden, #options-overlay.hidden { display: none; }
 
     .modal {
-      max-width: 580px;
-      padding: 24px 28px;
+      width: 100%;
+      max-width: 540px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 18px 20px;
       background: #0a0c12;
       border: 1px solid var(--crimson);
       box-shadow: 0 0 40px rgba(230, 57, 70, 0.22);
@@ -310,28 +315,32 @@
     }
 
     .modal pre {
-      margin: 0 0 12px 0;
+      margin: 0 0 10px 0;
       color: var(--crimson);
-      font-size: 11px;
+      font-size: clamp(6.2px, 2.05vw, 11px);
       line-height: 1.15;
+      overflow-x: hidden;
+      text-align: center;
     }
 
     .modal p {
-      font-size: 13px;
-      line-height: 1.55;
+      font-size: clamp(11.5px, 3vw, 13px);
+      line-height: 1.5;
       color: var(--text);
       margin: 8px 0;
     }
 
     .name-input-row {
-      margin-top: 14px;
+      margin-top: 12px;
       display: flex;
-      gap: 10px;
+      flex-wrap: wrap;
+      gap: 8px;
       align-items: center;
     }
 
     .name-input-row input {
-      flex: 1;
+      flex: 1 1 180px;
+      min-width: 0;
       background: #05060a;
       border: 1px solid var(--border);
       color: #fff;
@@ -339,6 +348,38 @@
       font-family: inherit;
       font-size: 14px;
       outline: none;
+    }
+
+    .skin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .skin-card {
+      background: #05060a;
+      border: 1.5px solid var(--border);
+      padding: 10px 8px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 11px;
+    }
+
+    .skin-card.selected {
+      border-color: var(--crimson);
+      background: rgba(230, 57, 70, 0.16);
+      color: #fff;
+    }
+
+    .skin-preview {
+      font-size: 14px;
+      line-height: 1.15;
+      margin-bottom: 6px;
+      color: var(--amber);
+      white-space: pre;
     }
 
     .name-input-row input:focus {
@@ -400,6 +441,7 @@
   <div class="top-center">
     <button class="ascii-btn" id="btn-sound">[M] Sonido: ON</button>
     <button class="ascii-btn" id="btn-respawn">[R] Reaparecer</button>
+    <button class="ascii-btn" id="btn-options">[O] Opciones</button>
     <button class="ascii-btn" id="btn-fullscreen">[ ] Pantalla</button>
   </div>
 
@@ -460,7 +502,23 @@
       </p>
       <div class="name-input-row">
         <input id="input-name" type="text" maxlength="16" placeholder="Tu nombre de vampiro..." />
+        <button class="ascii-btn" id="btn-menu-options" type="button">⚙ Skins</button>
         <button class="primary-btn" id="btn-start">ENTRAR</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="options-overlay" class="hidden">
+    <div class="modal" style="max-width: 480px;">
+      <div class="hud-title" style="font-size: 14px;">
+        <span>OPCIONES // SKINS ASCII</span>
+        <button class="ascii-btn" id="btn-close-options" type="button" style="padding: 3px 8px;">✕</button>
+      </div>
+      <p style="color:#8b949e; margin-top:6px;">Elige la apariencia de tu personaje (visible para todos los jugadores):</p>
+      <div class="skin-grid" id="skin-grid"></div>
+      <div class="name-input-row" style="justify-content: space-between; margin-top: 10px;">
+        <button class="ascii-btn" id="btn-opt-sound" type="button">🔊 Sonido: ON</button>
+        <button class="primary-btn" id="btn-save-options" type="button">LISTO</button>
       </div>
     </div>
   </div>
@@ -482,15 +540,32 @@
       const rankCount = document.getElementById("rank-count");
 
       const overlay = document.getElementById("overlay");
+      const optionsOverlay = document.getElementById("options-overlay");
+      const skinGrid = document.getElementById("skin-grid");
       const inputName = document.getElementById("input-name");
       const btnStart = document.getElementById("btn-start");
       const btnSound = document.getElementById("btn-sound");
       const btnRespawn = document.getElementById("btn-respawn");
+      const btnOptions = document.getElementById("btn-options");
+      const btnMenuOptions = document.getElementById("btn-menu-options");
+      const btnCloseOptions = document.getElementById("btn-close-options");
+      const btnSaveOptions = document.getElementById("btn-save-options");
+      const btnOptSound = document.getElementById("btn-opt-sound");
       const btnFullscreen = document.getElementById("btn-fullscreen");
       const touchJoystick = document.getElementById("touch-joystick");
       const joystickKnob = document.getElementById("joystick-knob");
       const tbtnDrain = document.getElementById("tbtn-drain");
       const tbtnPower = document.getElementById("tbtn-power");
+
+      const SKINS = {
+        vampire: { name: "Vampiro", head: "@", body: "V", cape: "~", legs: "||" },
+        dokkaebi: { name: "Dokkaebi", head: "^", body: "D", cape: "*", legs: "mm" },
+        reaper: { name: "Segador", head: "☠", body: "Ψ", cape: "░", legs: "//" },
+        ninja: { name: "Ninja", head: "#", body: "K", cape: "=", legs: "/\\" },
+        dragon: { name: "Dragón", head: "Ω", body: "&", cape: "≈", legs: "^^" }
+      };
+      let selectedSkin = localStorage.getItem("seoul_ascii_skin") || "vampire";
+      if (!SKINS[selectedSkin]) selectedSkin = "vampire";
 
       const isMobile =
         /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
@@ -500,6 +575,7 @@
         document.body.classList.add("is-mobile");
         btnSound.textContent = "🔊";
         btnRespawn.textContent = "↻";
+        btnOptions.textContent = "⚙";
         btnFullscreen.textContent = "⛶";
       }
 
@@ -1435,13 +1511,14 @@
           const capeColor = stellarRedshiftColor(sLvl, 0.72);
           const legColor = stellarRedshiftColor(sLvl, 0.52);
 
+          const skin = SKINS[p.skin || "vampire"] || SKINS.vampire;
           const isPowered = isMe ? localPlayer.powerTime > 0 : Boolean(p.power);
-          drawChar(iso.ix, iso.iy + 0.1, p.moving ? "/\\" : "||", legColor);
-          drawChar(iso.ix - 0.7, iso.iy - 0.55 - bob, capeChar, isPowered ? "#c084fc" : capeColor);
+          drawChar(iso.ix, iso.iy + 0.1, p.moving ? "/\\" : skin.legs, legColor);
+          drawChar(iso.ix - 0.7, iso.iy - 0.55 - bob, p.moving ? capeChar : skin.cape, isPowered ? "#c084fc" : capeColor);
           const wTier = p.weaponTier || p.level;
           drawChar(iso.ix + 0.7, iso.iy - 0.55 - bob, weaponGlyph(wTier), wTier >= 4 ? "#2ec4b6" : "#ffb347");
-          drawChar(iso.ix, iso.iy - 0.75 - bob, isPowered ? "W" : "V", isPowered && Math.floor(timeSec * 16) % 2 === 0 ? "#f0abfc" : mainColor);
-          drawChar(iso.ix, iso.iy - 1.48 - bob, "@", isPowered ? "#facc15" : "#f8fafc");
+          drawChar(iso.ix, iso.iy - 0.75 - bob, isPowered ? "W" : skin.body, isPowered && Math.floor(timeSec * 16) % 2 === 0 ? "#f0abfc" : mainColor);
+          drawChar(iso.ix, iso.iy - 1.48 - bob, skin.head, isPowered ? "#facc15" : "#f8fafc");
 
           if (isPowered) {
             for (let k = 0; k < 4; k++) {
@@ -1475,6 +1552,7 @@
           if (item.kind === "me") {
             drawVampire(worldToIso(localPlayer.x, localPlayer.y), {
               ...localPlayer,
+              skin: selectedSkin,
               name: inputName.value.trim() || `Vampiro-${myId || 1}`
             }, true);
           } else if (item.kind === "remote") {
@@ -1578,6 +1656,7 @@
         else if (e.code === "KeyE") doNova();
         else if (e.code === "KeyF") doPower();
         else if (e.code === "KeyM") sound.toggle();
+        else if (e.code === "KeyO") optionsOverlay.classList.contains("hidden") ? openOptions() : closeOptions();
         else if (e.code === "KeyR") sendWS({ type: "respawn" });
       });
 
@@ -1612,9 +1691,50 @@
         inputName.value = name;
         sessionStorage.setItem("seoul_ascii_name", name);
         overlay.classList.add("hidden");
+        optionsOverlay.classList.add("hidden");
         canvas.focus();
-        sendWS({ type: "join", name });
+        sendWS({ type: "join", name, skin: selectedSkin });
       }
+
+      function renderSkinGrid() {
+        skinGrid.innerHTML = Object.entries(SKINS)
+          .map(([id, s]) => {
+            const sel = id === selectedSkin ? "selected" : "";
+            return `<button type="button" class="skin-card ${sel}" data-skin="${id}">
+              <div class="skin-preview"> ${s.head}\n${s.cape}${s.body}/\n ${s.legs}</div>
+              <div>${s.name}</div>
+            </button>`;
+          })
+          .join("");
+        skinGrid.querySelectorAll(".skin-card").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            selectedSkin = btn.getAttribute("data-skin");
+            localStorage.setItem("seoul_ascii_skin", selectedSkin);
+            renderSkinGrid();
+            if (joined) sendWS({ type: "skin", skin: selectedSkin });
+          });
+        });
+      }
+
+      function openOptions() {
+        renderSkinGrid();
+        btnOptSound.textContent = sound.enabled ? "🔊 Sonido: ON" : "🔇 Sonido: OFF";
+        optionsOverlay.classList.remove("hidden");
+      }
+
+      function closeOptions() {
+        optionsOverlay.classList.add("hidden");
+        if (joined) canvas.focus();
+      }
+
+      btnOptions.addEventListener("click", openOptions);
+      btnMenuOptions.addEventListener("click", openOptions);
+      btnCloseOptions.addEventListener("click", closeOptions);
+      btnSaveOptions.addEventListener("click", closeOptions);
+      btnOptSound.addEventListener("click", () => {
+        sound.toggle();
+        btnOptSound.textContent = sound.enabled ? "🔊 Sonido: ON" : "🔇 Sonido: OFF";
+      });
 
       btnStart.addEventListener("click", joinGame);
       btnSound.addEventListener("click", () => sound.toggle());
