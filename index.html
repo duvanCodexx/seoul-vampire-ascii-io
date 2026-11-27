@@ -181,41 +181,46 @@
     }
 
     body.is-mobile .hud {
-      top: 8px;
-      left: 8px;
-      padding: 8px 10px;
-      font-size: 10.5px;
-      min-width: 205px;
+      top: 6px;
+      left: 6px;
+      padding: 5px 7px;
+      font-size: 9px;
+      line-height: 1.28;
+      min-width: 142px;
+    }
+
+    body.is-mobile .bar-label {
+      width: 38px;
     }
 
     body.is-mobile .ranking-panel {
-      top: 8px;
-      right: 8px;
-      width: 175px;
-      padding: 7px 9px;
-      font-size: 10px;
+      top: 6px;
+      right: 6px;
+      width: 132px;
+      padding: 5px 7px;
+      font-size: 9px;
     }
 
     body.is-mobile .top-center {
       top: auto;
-      bottom: 12px;
+      bottom: 10px;
       gap: 6px;
     }
 
     body.is-mobile button.ascii-btn {
-      padding: 6px 9px;
-      font-size: 11px;
+      padding: 5px 8px;
+      font-size: 13px;
     }
 
     #touch-joystick {
       position: fixed;
-      bottom: 24px;
-      left: 24px;
-      width: 124px;
-      height: 124px;
+      bottom: 14px;
+      left: 14px;
+      width: 92px;
+      height: 92px;
       border-radius: 50%;
       background: rgba(15, 19, 28, 0.65);
-      border: 2px solid rgba(201, 209, 217, 0.28);
+      border: 1.5px solid rgba(201, 209, 217, 0.28);
       pointer-events: auto;
       touch-action: none;
     }
@@ -224,35 +229,35 @@
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 48px;
-      height: 48px;
-      margin-left: -24px;
-      margin-top: -24px;
+      width: 36px;
+      height: 36px;
+      margin-left: -18px;
+      margin-top: -18px;
       border-radius: 50%;
       background: rgba(230, 57, 70, 0.72);
-      border: 2px solid #fff;
+      border: 1.5px solid #fff;
       pointer-events: none;
     }
 
     #touch-actions {
       position: fixed;
-      bottom: 20px;
-      right: 18px;
+      bottom: 12px;
+      right: 12px;
       display: grid;
-      grid-template-columns: repeat(3, 62px);
-      gap: 8px;
+      grid-template-columns: repeat(3, 44px);
+      gap: 5px;
       pointer-events: auto;
       touch-action: none;
     }
 
     .touch-btn {
-      height: 54px;
-      border-radius: 10px;
+      height: 40px;
+      border-radius: 8px;
       background: rgba(15, 19, 28, 0.78);
       border: 1.5px solid var(--border);
       color: var(--text);
       font-family: inherit;
-      font-size: 11px;
+      font-size: 16px;
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -424,14 +429,14 @@
       <div id="joystick-knob"></div>
     </div>
     <div id="touch-actions">
-      <button class="touch-btn" id="tbtn-zoom-out">Z-</button>
-      <button class="touch-btn" id="tbtn-parry">PARRY</button>
-      <button class="touch-btn" id="tbtn-zoom-in">Z+</button>
-      <button class="touch-btn" id="tbtn-nova">NOVA</button>
-      <button class="touch-btn" id="tbtn-drain">DRENAR</button>
-      <button class="touch-btn" id="tbtn-power">PODER</button>
-      <button class="touch-btn" id="tbtn-dash">DASH</button>
-      <button class="touch-btn primary" id="tbtn-slash" style="grid-column: span 2;">TAJO</button>
+      <button class="touch-btn" id="tbtn-zoom-out" title="Alejar">➖</button>
+      <button class="touch-btn" id="tbtn-parry" title="Parry">🛡️</button>
+      <button class="touch-btn" id="tbtn-zoom-in" title="Acercar">➕</button>
+      <button class="touch-btn" id="tbtn-nova" title="Nova">💥</button>
+      <button class="touch-btn" id="tbtn-drain" title="Drenar">🩸</button>
+      <button class="touch-btn" id="tbtn-power" title="Poder">⚡</button>
+      <button class="touch-btn" id="tbtn-dash" title="Dash">💨</button>
+      <button class="touch-btn primary" id="tbtn-slash" title="Tajo" style="grid-column: span 2;">⚔️</button>
     </div>
   </div>
 
@@ -493,6 +498,9 @@
         ("ontouchstart" in window && window.innerWidth <= 1024);
       if (isMobile) {
         document.body.classList.add("is-mobile");
+        btnSound.textContent = "🔊";
+        btnRespawn.textContent = "↻";
+        btnFullscreen.textContent = "⛶";
       }
 
       let joyX = 0;
@@ -542,7 +550,7 @@
           if (this.rainGain && this.ctx) {
             this.rainGain.gain.setTargetAtTime(this.enabled ? 0.04 : 0, this.ctx.currentTime, 0.05);
           }
-          btnSound.textContent = `[M] Sonido: ${this.enabled ? "ON" : "OFF"}`;
+          btnSound.textContent = isMobile ? (this.enabled ? "🔊" : "🔇") : `[M] Sonido: ${this.enabled ? "ON" : "OFF"}`;
         }
         playTone(freq, endFreq, dur, type = "sawtooth", vol = 0.08) {
           if (!this.enabled || !this.ctx) return;
@@ -589,7 +597,7 @@
       let ws = null;
       let myId = null;
       let joined = false;
-      let zoom = 1.05;
+      let zoom = isMobile ? 0.68 : 1.05;
       let wave = 1;
       let screenShake = 0;
       let lightningFlash = 0;
@@ -916,7 +924,9 @@
       function renderLeaderboard(board, totalOnline) {
         rankCount.textContent = `${totalOnline} online`;
         if (!board || board.length === 0) return;
+        const maxRows = isMobile ? 5 : 10;
         rankingList.innerHTML = board
+          .slice(0, maxRows)
           .map((row, idx) => {
             const isMe = row.id === myId;
             return `<div class="rank-row ${isMe ? "me" : ""}">
@@ -932,7 +942,7 @@
       }
 
       function makeBar(val, max, fillChar = "#", emptyChar = ".") {
-        const slots = 10;
+        const slots = isMobile ? 6 : 10;
         const filled = Math.round((Math.max(0, val) / Math.max(1, max)) * slots);
         return `[${fillChar.repeat(filled)}${emptyChar.repeat(slots - filled)}] ${Math.ceil(val)}/${max}`;
       }
@@ -943,10 +953,10 @@
         hudLvl.textContent = `Nv.${localPlayer.level} ${makeBar(localPlayer.xp, localPlayer.xpNext, "+", ".")}`;
         if (localPlayer.powerTime > 0) {
           hudPower.style.color = "#e879f9";
-          hudPower.textContent = `${makeBar(localPlayer.powerTime, 8, "*", ".")} ACTIVO ${localPlayer.powerTime.toFixed(1)}s`;
+          hudPower.textContent = `${makeBar(localPlayer.powerTime, 8, "*", ".")} ${localPlayer.powerTime.toFixed(1)}s`;
         } else if (localPlayer.powerCharge >= 100) {
           hudPower.style.color = "#facc15";
-          hudPower.textContent = "[**********] LISTO [F]";
+          hudPower.textContent = isMobile ? "⚡ LISTO" : "[**********] LISTO [F]";
         } else {
           hudPower.style.color = "#c084fc";
           hudPower.textContent = `${makeBar(localPlayer.powerCharge, 100, "%", ".")} ${Math.floor(localPlayer.powerCharge)}%`;
@@ -954,26 +964,26 @@
         hudWeapon.textContent = localPlayer.weapon;
         if (localPlayer.drainCd > 0) {
           hudDrain.style.color = "#94a3b8";
-          hudDrain.textContent = `Recargando (${localPlayer.drainCd.toFixed(1)}s)`;
+          hudDrain.textContent = `${localPlayer.drainCd.toFixed(1)}s`;
           tbtnDrain.classList.add("disabled");
-          tbtnDrain.textContent = `${Math.ceil(localPlayer.drainCd)}s`;
+          tbtnDrain.textContent = `${Math.ceil(localPlayer.drainCd)}`;
         } else {
           hudDrain.style.color = "#2ec4b6";
-          hudDrain.textContent = "LISTO [Click Der/L]";
+          hudDrain.textContent = isMobile ? "🩸" : "LISTO [Click Der/L]";
           tbtnDrain.classList.remove("disabled");
-          tbtnDrain.textContent = "DRENAR";
+          tbtnDrain.textContent = "🩸";
         }
         if (localPlayer.powerTime > 0) {
           tbtnPower.classList.add("ready");
           tbtnPower.textContent = `${localPlayer.powerTime.toFixed(0)}s`;
         } else if (localPlayer.powerCharge >= 100) {
           tbtnPower.classList.add("ready");
-          tbtnPower.textContent = "PODER!";
+          tbtnPower.textContent = "⚡";
         } else {
           tbtnPower.classList.remove("ready");
-          tbtnPower.textContent = `${Math.floor(localPlayer.powerCharge)}%`;
+          tbtnPower.textContent = "⚡";
         }
-        hudStats.textContent = `Oleada ${wave} | Bajas: ${localPlayer.kills} | Zoom: ${zoom.toFixed(1)}x`;
+        hudStats.textContent = isMobile ? `O.${wave} | K:${localPlayer.kills}` : `Oleada ${wave} | Bajas: ${localPlayer.kills} | Zoom: ${zoom.toFixed(1)}x`;
       }
 
       // --- Projection ---
@@ -1628,7 +1638,11 @@
 
       btnFullscreen.addEventListener("click", toggleFullscreen);
       document.addEventListener("fullscreenchange", () => {
-        btnFullscreen.textContent = document.fullscreenElement ? "[x] Salir" : "[ ] Pantalla";
+        if (isMobile) {
+          btnFullscreen.textContent = document.fullscreenElement ? "✕" : "⛶";
+        } else {
+          btnFullscreen.textContent = document.fullscreenElement ? "[x] Salir" : "[ ] Pantalla";
+        }
       });
 
       // --- Mobile Touch Joystick & Buttons ---
@@ -1691,8 +1705,8 @@
       bindTouchBtn("tbtn-drain", doDrain);
       bindTouchBtn("tbtn-nova", doNova);
       bindTouchBtn("tbtn-power", doPower);
-      bindTouchBtn("tbtn-zoom-in", () => { zoom = Math.min(2.4, zoom + 0.15); updateHUD(); });
-      bindTouchBtn("tbtn-zoom-out", () => { zoom = Math.max(0.6, zoom - 0.15); updateHUD(); });
+      bindTouchBtn("tbtn-zoom-in", () => { zoom = Math.min(1.8, zoom + 0.12); updateHUD(); });
+      bindTouchBtn("tbtn-zoom-out", () => { zoom = Math.max(0.45, zoom - 0.12); updateHUD(); });
 
       window.addEventListener("beforeunload", () => {
         if (ws && ws.readyState === WebSocket.OPEN) ws.close(1000, "Tab closed");
